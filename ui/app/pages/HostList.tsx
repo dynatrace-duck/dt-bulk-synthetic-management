@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Flex } from '@dynatrace/strato-components/layouts';
 import { TitleBar } from '@dynatrace/strato-components/layouts';
 import { DataTable, DataTableColumnDef } from '@dynatrace/strato-components/tables';
+import { TextInput } from '@dynatrace/strato-components/forms';
+import { Text } from '@dynatrace/strato-components/typography';
 import { MessageContainer, ProgressCircle } from '@dynatrace/strato-components/content';
 import {
   syntheticMonitorsClient,
@@ -18,11 +20,44 @@ const columns: DataTableColumnDef<MonitorCollectionElement>[] = [
   { id: 'entityId', header: 'Entity ID', accessor: 'entityId' },
 ];
 
+interface MonitorTag {
+  key?: string;
+  value?: string;
+}
+
+const getMonitorTags = (monitor: MonitorCollectionElement): MonitorTag[] => {
+  const tags = (monitor as { tags?: MonitorTag[] }).tags;
+  return Array.isArray(tags) ? tags : [];
+};
+
+// Plain text filters on name (case-insensitive, partial); "key:value" matches a tag exactly.
+export const filterMonitors = (
+  allMonitors: MonitorCollectionElement[],
+  query: string,
+): MonitorCollectionElement[] => {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return allMonitors;
+  }
+  const separator = trimmed.indexOf(':');
+  if (separator > 0) {
+    const key = trimmed.slice(0, separator).trim();
+    const value = trimmed.slice(separator + 1).trim();
+    return allMonitors.filter((monitor) =>
+      getMonitorTags(monitor).some((tag) => tag.key === key && tag.value === value),
+    );
+  }
+  const needle = trimmed.toLowerCase();
+  return allMonitors.filter((monitor) => monitor.name.toLowerCase().includes(needle));
+};
+
 export const HostList = () => {
   // React state holds values that, when changed, should cause the component to re-render.
   const [monitors, setMonitors] = useState<MonitorCollectionElement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error>();
+  const [filterText, setFilterText] = useState('');
+  const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
   // useEffect runs side effects (like data fetching) after render. The empty
   // dependency array below means this only runs once, when the component mounts.
@@ -60,6 +95,14 @@ export const HostList = () => {
   // useMemo avoids recreating the columns array on every render, as required by DataTable.
   const tableColumns = useMemo(() => columns, []);
 
+  // filteredMonitors is derived; the loaded monitors are never mutated.
+  const filteredMonitors = useMemo(
+    () => filterMonitors(monitors, filterText),
+    [monitors, filterText],
+  );
+
+  const selectedCount = Object.values(selectedRows).filter(Boolean).length;
+
   return (
     <Flex width="100%" flexDirection="column" justifyContent="center" gap={16}>
       <TitleBar>
@@ -73,7 +116,27 @@ export const HostList = () => {
         </MessageContainer>
       )}
       {!isLoading && !error && (
-        <DataTable data={monitors} columns={tableColumns} fullWidth />
+        <>
+          <TextInput
+            placeholder="Filter by name or tag (e.g. checkout, environment:prod)"
+            value={filterText}
+            onChange={setFilterText}
+            aria-label="Filter monitors"
+          />
+          <Text>
+            {selectedCount} {selectedCount === 1 ? 'monitor' : 'monitors'} selected
+          </Text>
+          <DataTable
+            data={filteredMonitors}
+            columns={tableColumns}
+            fullWidth
+            sortable
+            selectableRows
+            rowId={(row) => row.entityId}
+            selectedRows={selectedRows}
+            onRowSelectionChange={setSelectedRows}
+          />
+        </>
       )}
     </Flex>
   );
