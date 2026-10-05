@@ -1,20 +1,28 @@
-import { PageLayout } from "@dynatrace/strato-components/layouts";
-import React from "react";
-import { Route, Routes } from "react-router-dom";
-import { Data } from "./pages/Data";
-import { Header } from "./components/Header";
-import { Home } from "./pages/Home";
+import {
+  PageLayout,
+  AppHeader,
+} from '@dynatrace/strato-components/layouts';
+import React from 'react';
+import {
+  Route,
+  Routes,
+  Link,
+} from 'react-router-dom';
+import { HostList } from './pages/HostList';
 
 export const App = () => {
   return (
     <PageLayout>
       <PageLayout.Header>
-        <Header />
+        <AppHeader>
+          <AppHeader.Navigation>
+            <AppHeader.Logo as={Link} to="/" />
+          </AppHeader.Navigation>
+        </AppHeader>
       </PageLayout.Header>
       <PageLayout.Content>
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/data" element={<Data />} />
+          <Route path="/" element={<HostList />} />
         </Routes>
       </PageLayout.Content>
     </PageLayout>
